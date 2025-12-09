@@ -331,12 +331,15 @@ const char index_html[] PROGMEM = R"rawliteral(
   }
   // --- ROUTINES ---
   function loadRoutines() {
-    fetch('/api/routines').then(r => r.json()).then(data => {
+    fetch('/api/routines').then(r => {
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+    }).then(data => {
+      console.log("Routines Data:", data);
       allRoutines = data;
       const container = document.getElementById('routineList');
       container.innerHTML = '';
       
-      // Check if object is empty
       if(Object.keys(data).length === 0) {
         container.innerHTML = '<p style="color:#666;">No routines configured.</p>';
         return;
@@ -349,19 +352,39 @@ const char index_html[] PROGMEM = R"rawliteral(
         
         const content = document.createElement('div');
         content.className = 'accordion-content';
+        content.style.backgroundColor = '#f9fafb';
+        content.style.padding = '1rem';
+        
+        // CSS Grid for Semester Cards
+        const cardGrid = document.createElement('div');
+        cardGrid.style.display = 'grid';
+        cardGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(200px, 1fr))';
+        cardGrid.style.gap = '1rem';
         
         for(const sem in data[dept]) {
           const r = data[dept][sem];
-          content.innerHTML += `
-            <div style="margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid #eee;">
-              <strong>${sem}</strong>: ${r.start} - ${r.end} (${r.breaks.length} Breaks)
-              <button class="btn btn-sm btn-primary" style="float:right" onclick="editRoutine('${dept}','${sem}')">Edit</button>
+          cardGrid.innerHTML += `
+            <div style="background:white; padding:1rem; border-radius:0.5rem; border:1px solid #e5e7eb; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                <strong style="font-size:1.1rem; color:#374151;">${sem}</strong>
+                <button class="btn btn-sm btn-primary" onclick="editRoutine('${dept}','${sem}')">Edit</button>
+              </div>
+              <div style="font-size:0.9rem; color:#6b7280; margin-bottom:0.5rem;">
+                ⏱ ${r.start} - ${r.end}
+              </div>
+              <div style="font-size:0.85rem; color:#6b7280;">
+                 <span style="background:#e5e7eb; padding:2px 6px; border-radius:4px;">${r.breaks.length} Breaks</span>
+              </div>
             </div>
           `;
         }
+        content.appendChild(cardGrid);
         deptDiv.appendChild(content);
         container.appendChild(deptDiv);
       }
+    }).catch(e => {
+       console.error("Routine Load Error:", e);
+       document.getElementById('routineList').innerHTML = '<p style="color:red; text-align:center;">Error loading routines. <br>Please Check Serial Monitor.</p>';
     });
   }
   function openRoutineForm() {

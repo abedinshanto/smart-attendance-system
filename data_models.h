@@ -146,10 +146,37 @@ void saveRoutineJSON(String dept, String sem, String jsonContent) {
 // Get All Routines (for UI tree view)
 String getAllRoutinesJSON() {
   File file = LittleFS.open("/routines.json", "r");
-  if (!file)
+  if (!file) {
+    // Attempt to create it if missing
+    File create = LittleFS.open("/routines.json", "w");
+    if (create) {
+      create.print("{}");
+      create.close();
+    }
     return "{}";
+  }
   String output = file.readString();
   file.close();
-  return output;
+  output.trim();
+  if (output.length() == 0)
+    return "{}";
+  // Validate AND Clean JSON
+  DynamicJsonDocument doc(8192);
+  DeserializationError error = deserializeJson(doc, output);
+  if (error) {
+    Serial.print("Corrupt routine file: ");
+    Serial.println(error.c_str());
+    // Auto-repair
+    File repair = LittleFS.open("/routines.json", "w");
+    if (repair) {
+      repair.print("{}");
+      repair.close();
+    }
+    return "{}";
+  }
+  // Re-serialize to ensure 100% valid JSON for browser
+  String cleanOutput;
+  serializeJson(doc, cleanOutput);
+  return cleanOutput;
 }
 #endif
