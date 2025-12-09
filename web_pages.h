@@ -61,6 +61,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   </style>
 </head>
 <body>
+
 <div class="navbar">
   <div class="nav-brand">Smart Attendance</div>
   <div class="nav-links">
@@ -70,7 +71,9 @@ const char index_html[] PROGMEM = R"rawliteral(
     <button onclick="showTab('reports')">Reports</button>
   </div>
 </div>
+
 <div class="container">
+
   <!-- DASHBOARD -->
   <div id="dashboard" class="card active">
     <!-- Pastel Stat Cards -->
@@ -101,6 +104,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       <tbody></tbody>
     </table>
   </div>
+
   <!-- STUDENTS -->
   <div id="students" class="card">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
@@ -126,12 +130,14 @@ const char index_html[] PROGMEM = R"rawliteral(
         <button class="btn btn-primary" onclick="saveStudent()">Save</button>
       </div>
     </div>
+
     <input type="text" id="studentSearch" placeholder="Search by Name, Dept or Roll..." onkeyup="filterStudents()" style="padding: 0.75rem;">
     <table id="studentTable">
       <thead><tr><th>Name</th><th>Dept</th><th>Sem</th><th>Roll</th><th>Mobile</th><th>Blood</th><th>Actions</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
+
   <!-- ROUTINES -->
   <div id="routines" class="card">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
@@ -156,8 +162,10 @@ const char index_html[] PROGMEM = R"rawliteral(
          <button class="btn btn-primary" onclick="saveRoutine()">Save</button>
       </div>
     </div>
+
     <div id="routineList"></div>
   </div>
+
   <!-- REPORTS -->
   <div id="reports" class="card">
     <h2 style="color: #374151;">Reports</h2>
@@ -173,7 +181,9 @@ const char index_html[] PROGMEM = R"rawliteral(
     <p>This action is irreversible. It will delete all attendance history.</p>
     <button class="btn btn-danger" onclick="clearLogs()">Clear All Logs</button>
   </div>
+
 </div>
+
 <script>
   let allStudents = [];
   let allRoutines = {};
@@ -193,6 +203,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
     event.target.classList.add('active');
   }
+
   // --- DASHBOARD ---
   function updateStatus() {
     fetch('/api/status').then(r => r.json()).then(data => {
@@ -214,6 +225,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       }
     });
   }
+
   function loadLiveLogs() {
     const dateInput = document.getElementById('dashDate');
     let dateStr = dateInput.value;
@@ -247,6 +259,7 @@ const char index_html[] PROGMEM = R"rawliteral(
           }
            // Use zero-width space if contact is missing to keep cell structure
           const contact = l.contact && l.contact !== 'null' ? l.contact : '-';
+
           return `
           <tr>
             <td>${timeDisplay}</td>
@@ -263,6 +276,7 @@ const char index_html[] PROGMEM = R"rawliteral(
        document.querySelector('#liveTable tbody').innerHTML = '<tr><td colspan="6" style="text-align:center; color:red;">Error loading logs</td></tr>';
     });
   }
+
   // --- STUDENTS ---
   function loadStudents() {
     fetch('/api/students').then(r => r.json()).then(data => {
@@ -270,6 +284,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       renderStudents(data);
     });
   }
+
   function renderStudents(list) {
     const tbody = document.querySelector('#studentTable tbody');
     tbody.innerHTML = list.map(s => `
@@ -287,6 +302,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       </tr>
     `).join('');
   }
+
   function filterStudents() {
     const q = document.getElementById('studentSearch').value.toLowerCase();
     const filtered = allStudents.filter(s => 
@@ -294,11 +310,13 @@ const char index_html[] PROGMEM = R"rawliteral(
     );
     renderStudents(filtered);
   }
+
   function openStudentForm() {
     document.getElementById('studentForm').style.display = 'block';
     ['s_uid','s_name','s_dept','s_sem','s_roll','s_reg','s_contact','s_blood'].forEach(id => document.getElementById(id).value = '');
     alert("Scan a card now to auto-fill UID");
   }
+
   function editStudent(uid) {
     const s = allStudents.find(x => x.uid === uid);
     if(!s) return;
@@ -312,6 +330,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     document.getElementById('s_contact').value = s.contact;
     document.getElementById('s_blood').value = s.blood;
   }
+
   function saveStudent() {
     const data = new URLSearchParams();
     ['uid','name','dept','sem','roll','reg','contact','blood'].forEach(key => {
@@ -329,6 +348,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       fetch('/api/student?uid=' + uid, { method: 'DELETE' }).then(() => loadStudents());
     }
   }
+
   // --- ROUTINES ---
   function loadRoutines() {
     fetch('/api/routines').then(r => {
@@ -384,15 +404,32 @@ const char index_html[] PROGMEM = R"rawliteral(
       }
     }).catch(e => {
        console.error("Routine Load Error:", e);
-       document.getElementById('routineList').innerHTML = '<p style="color:red; text-align:center;">Error loading routines. <br>Please Check Serial Monitor.</p>';
+       document.getElementById('routineList').innerHTML = `
+         <div style="text-align:center; color:red; padding:2rem;">
+           <p><strong>Error loading routines</strong></p>
+           <p style="font-size:0.9rem; color:#666;">${e.message}</p>
+           <button class="btn btn-danger" onclick="resetRoutines()" style="margin-top:1rem;">⚠️ Reset All Routines</button>
+         </div>
+       `;
     });
   }
+
+  function resetRoutines() {
+    if(confirm("This will DELETE ALL routines to fix the corruption. Continue?")) {
+      fetch('/api/reset_routines', { method: 'POST' }).then(() => {
+        alert("Routines reset. Reloading...");
+        location.reload();
+      });
+    }
+  }
+
   function openRoutineForm() {
     document.getElementById('routineForm').style.display = 'block';
     document.getElementById('r_dept').value = '';
     document.getElementById('r_sem').value = '';
     document.getElementById('breaksContainer').innerHTML = '';
   }
+
   function addBreakField(s='', e='') {
     const div = document.createElement('div');
     div.className = 'break-item';
@@ -400,6 +437,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     div.innerHTML = `<input type="time" class="b-s" value="${s}" style="width:40%"> to <input type="time" class="b-e" value="${e}" style="width:40%"> <button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">X</button>`;
     document.getElementById('breaksContainer').appendChild(div);
   }
+
   function editRoutine(dept, sem) {
     const r = allRoutines[dept][sem];
     document.getElementById('routineForm').style.display = 'block';
@@ -410,6 +448,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     document.getElementById('breaksContainer').innerHTML = '';
     r.breaks.forEach(b => addBreakField(b.s, b.e));
   }
+
   function saveRoutine() {
     const breaks = [];
     document.querySelectorAll('.break-item').forEach(d => {
@@ -433,6 +472,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       alert('Saved!');
     });
   }
+
   // --- REPORTS ---
   function downloadReport() {
     const date = document.getElementById('reportDate').value;
